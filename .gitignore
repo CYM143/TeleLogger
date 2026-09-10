@@ -4,3 +4,5 @@
 # Files
 .env
 .DS_Store
+data.db
+tests.py
