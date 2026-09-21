@@ -1,8 +1,12 @@
 def report_for_sent_message(user_id: int, username: str, text: str) -> str:
     """Function for report generation. Return formatted report."""
-    formatted_report = f"""Сообщение от @{username} ({user_id}):
+    if text is not None:
+        formatted_report = f"""Сообщение от @{username} ({user_id}):
 
 <blockquote> {text} </blockquote>"""
+    else:
+        formatted_report = f"""Сообщение от @{username} ({user_id})"""
+        
     return formatted_report
 
 def report_for_edited_message(user_id: int, username: str, text: str) -> str:

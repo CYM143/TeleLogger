@@ -35,6 +35,28 @@ async def message_text_forwarder(message):
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
 
 @bot.business_message_handler(func=lambda message: True, content_types=['photo', 'video', 'document', 'audio']) # Обработка всех медиа к которым можно прикрепить текстовое сообщение.
+async def message_files_forwarder(message):
+    admin_id = int(os.getenv('admin_id'))
+    user_id = message.from_user.id
+
+    if user_id == admin_id: # Если это сообщение админа - пропускаем.
+        return
+
+    report = reports.report_for_sent_message(user_id, message.from_user.username, message.caption) # Формируем текстовый отчет для сообщения (исходя из формата файла)
+
+    # Выбираем формат файла и исходя из него отправляем сообщение.
+    if message.content_type == 'photo':
+        bot_msg = await bot.send_photo(admin_id, message.photo[-1].file_id, caption=report, parse_mode='HTML')
+    elif message.content_type == 'video':
+        bot_msg = await bot.send_video(admin_id, message.video[-1].file_id, caption=report, parse_mode='HTML')
+    elif message.content_type == 'document':
+        bot_msg = await bot.send_document(admin_id, message.document.file_id, caption=report, parse_mode='HTML')
+    elif message.content_type == 'audio':
+        bot_msg = await bot.send_audio(admin_id, message.audio.file_id, caption=report, parse_mode='HTML')
+
+    await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
+
+@bot.business_message_handler(func=lambda message: True, content_types=['voice', 'video_note']) # Обработка всех медиа к которым нельзя прикрепить текстовое сообщене.
 async def message_media_forwarder(message):
     admin_id = int(os.getenv('admin_id'))
     user_id = message.from_user.id
@@ -42,8 +64,15 @@ async def message_media_forwarder(message):
     if user_id == admin_id: # Если это сообщение админа - пропускаем.
         return
 
-    report = reports.report_for_sent_message(user_id, message.from_user.username, message.caption) # Формируем текстовый отчет для сообщения (от кого, какое содержание)
-    bot_msg = await bot.send_photo(admin_id, message.photo[-1].file_id, report, parse_mode='HTML') # Отправляем медиа с прикрепленным отчетом.
+    report = reports.report_for_sent_message(user_id, message.from_user.username, message.caption)# Формируем текстовый отчет для сообщения.
+
+    # Выбирвем формат файла и отправляем отчет.
+    if message.content_type == 'voice':
+        bot_msg = await bot.send_audio(admin_id, message.voice.file_id, caption=report, parse_mode="HTML")
+    elif message.content_type == 'video_note':
+        bot_msg = await bot.send_video(admin_id, message.video_note.file_id)
+        await bot.reply_to(bot_msg, text=report) # Отвечаем на видео-сообщение тк напрямую добавить текстовое сообщение не получится.
+
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
 
 @bot.edited_business_message_handler(func=lambda message: True) # Обработка отредактированных сообщений.
