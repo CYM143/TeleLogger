@@ -10,8 +10,8 @@ bot = AsyncTeleBot(os.getenv('API'))
 @bot.message_handler(commands=['start']) # Обработка команды /start
 async def start_handler(message):
     user_id = message.chat.id
-
     admin_id = os.getenv('admin_id') # Получаем данные из .env
+
     if admin_id is not None and admin_id != str(user_id): # Если админ уже есть и это не он, то отклоняем запрос.
         await bot.send_message(user_id, 'Извините, этот бот для вас недоступен !')
         return
@@ -21,6 +21,18 @@ async def start_handler(message):
         set_key('.env', 'admin_id', str(user_id))
         await bot.send_message(user_id, "Вы успешно установили этот аккаунт, как аккаунт администратора !")
         return
+
+@bot.message_handler(commands=['stats']) # Обработка команды /stats
+async def statistic_handler(message):
+    user_id = message.from_user.id
+    admin_id = int(os.getenv('admin_id'))
+
+    if user_id != admin_id: # Пропускаем все запросы не от администратора.
+        return
+
+    stats = await database.get_statistic() # Получение статистики из БД.
+
+    await bot.send_message(user_id, f"Статистика:\n\nСохранено чатов - {stats[0]}\nВсего сообщений - {stats[1]}") # Отправляем отчет.
 
 @bot.business_message_handler(func=lambda message: True, content_types=['text']) # Обработка всех текстовых сообщений
 async def message_text_forwarder(message):

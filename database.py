@@ -28,3 +28,17 @@ async def get_message_id_from_bot_chat(user_id: int, chat_message_id: int) -> in
                 return row[-1][0]
             else:
                 return None
+
+async def get_statistic() ->  tuple[int, int]:
+    """Function for get statistic from database. Return count of tables and count of records"""
+    async with aiosqlite.connect(database_name) as db:
+        async with db.execute("SELECT name FROM sqlite_master WHERE type='table'") as cursor:
+            tables = await cursor.fetchall()
+
+        count = 0
+        for table in tables:
+            async with db.execute(f"SELECT COUNT(*) FROM '{table[0]}'") as cursor:
+                count_raw = await cursor.fetchone()
+                count += count_raw[0]
+
+        return len(tables), count
