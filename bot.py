@@ -9,19 +9,34 @@ bot = AsyncTeleBot(os.getenv('API'))
 
 @bot.message_handler(commands=['start']) # Обработка команды /start
 async def start_handler(message):
-    user_id = message.chat.id
-    admin_id = os.getenv('admin_id') # Получаем данные из .env
+    user_id = message.from_user.id # Получаем id того, кто написал
+    admin_id = os.getenv('admin_id') # Получаем id админа
 
-    if admin_id is not None and admin_id != str(user_id): # Если админ уже есть и это не он, то отклоняем запрос.
-        await bot.send_message(user_id, 'Извините, этот бот для вас недоступен !')
-        return
-    elif admin_id == str(user_id): # Если админ уже есть и это он, то возвращаем сообщение о том, что бот работает.
-        await bot.send_message(user_id, "Я в сети и работаю в штатном режиме !")
-    else: # Если админа нет, то устанавливаем этот аккаунт, как аккаунт администратора.
+    if admin_id == str(user_id): # Если пишет вдмин, возвращаем, что бот в сети
+        await bot.send_message(user_id, 'Бот в сети !')
+    elif admin_id is None: # Если админа нет, устанавливаем нового
         set_key('.env', 'admin_id', str(user_id))
-        await bot.send_message(user_id, "Вы успешно установили этот аккаунт, как аккаунт администратора !")
+        await bot.send_message(user_id, "Ваш аккаунт был установлен, как аккаунт администратора !")
+    else: # Иначе делаем вид, что бот не рабочий
         return
 
+@bot.message_handler(commands=['status']) # Обработка команды /status
+async def status_handler(message):
+    user_id = message.from_user.id
+    admin_id = os.getenv('admin_id')
+
+    if admin_id == str(user_id): # Если пишет админ, проверяем сохраняет ли бот сообщения
+        group_id = os.getenv('group_id') # Получаем group_id
+
+        if group_id is not None: # Если group_id есть, то бот работает
+            await bot.send_message(user_id, 'Бот в сети и работает штатно !')
+        else: # Если же нету, то бот не может сохранять сообщения
+            await bot.send_message(user_id, 'Бот не подключен к группе с включенными темами, испольуйте /set_group')
+
+    else: # Если пишет не админ, делаем вид, что бот не рабочий
+        return
+
+'''
 @bot.message_handler(commands=['stats']) # Обработка команды /stats
 async def statistic_handler(message):
     user_id = message.from_user.id
@@ -33,7 +48,33 @@ async def statistic_handler(message):
     stats = await database.get_statistic() # Получение статистики из БД.
 
     await bot.send_message(user_id, f"Статистика:\n\nСохранено чатов - {stats[0]}\nВсего сообщений - {stats[1]}") # Отправляем отчет.
+'''
+    
+@bot.message_handler(commands=['set_group']) # Обработка команды /set_group
+async def set_group(message):
+    user_id = message.from_user.id
+    admin_id = os.getenv('admin_id')
 
+    if admin_id != str(user_id): # Проверяем админ ли использовал команду
+        return
+
+    if message.chat.is_forum: # Проверяем включены ли threads в группе
+
+        bot_info = await bot.get_me()
+        bot_chat_member = await bot.get_chat_member(message.chat.id, bot_info.id) # Получаем бота как пользователя группы
+        if bot_chat_member.status in ['administrator', 'creator']: # Проверяем является ли бот администратором
+            if bot_chat_member.can_manage_topics: # Проверяем есть ли у бота разрешение на редактирование threads
+                set_key('.env', 'group_id', str(message.chat.id))
+                await bot.send_message(message.from_user.id, f"Установлена новая группа для уведомлений !\n*Название:* {message.chat.title}\n*ID группы:* {message.chat.id}", parse_mode='Markdown')
+            else:
+                await bot.reply_to(message, 'У меня нет прав на редактирование тем !')
+        else:
+            await bot.reply_to(message, 'У меня нет прав администратора !')
+
+    else: # Если threads нету, просим пользователя их включить
+        await bot.reply_to(message, "Внимание !\nВ группе должны быть включены темы.")
+
+'''
 @bot.business_message_handler(func=lambda message: True, content_types=['text']) # Обработка всех текстовых сообщений
 async def message_text_forwarder(message):
     admin_id = int(os.getenv('admin_id'))
@@ -121,7 +162,8 @@ async def message_deleted(message):
         else:
             report = reports.reprort_for_deleted_message(user_id, message.chat.username) # Формируем отчет.
             await bot.send_message(admin_id, report, reply_to_message_id=original_message_id) 
-
+'''
+            
 async def main():
     print('Bot is now online.')
     await bot.infinity_polling()
