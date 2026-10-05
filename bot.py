@@ -15,7 +15,8 @@ async def start_handler(message):
     if admin_id == str(user_id): # Если пишет вдмин, возвращаем, что бот в сети
         await bot.send_message(user_id, 'Бот в сети !')
     elif admin_id is None: # Если админа нет, устанавливаем нового
-        set_key('.env', 'admin_id', str(user_id))
+        set_key('.env', 'admin_id', str(user_id)) # Устанавливаем значения id админа 
+        load_dotenv(override=True) # Обновляем все значения .env в памяти 
         await bot.send_message(user_id, "Ваш аккаунт был установлен, как аккаунт администратора !")
     else: # Иначе делаем вид, что бот не рабочий
         return
@@ -36,20 +37,22 @@ async def status_handler(message):
     else: # Если пишет не админ, делаем вид, что бот не рабочий
         return
 
-'''
 @bot.message_handler(commands=['stats']) # Обработка команды /stats
 async def statistic_handler(message):
     user_id = message.from_user.id
-    admin_id = int(os.getenv('admin_id'))
+    admin_id = os.getenv('admin_id')
 
-    if user_id != admin_id: # Пропускаем все запросы не от администратора.
+    if admin_id == str(user_id): # Если пишет админ, получаем и отправляем статистику бота
+        stats = await database.get_statistic()
+
+        await bot.send_message(user_id, f"""*Статистика сохранения чатов:*
+Сохранено чатов: {stats[0]}
+Всего сохранено сообщений: {stats[1]}
+""", parse_mode='Markdown')
+
+    else: # Если пишет не админ, то делаем вид, что бот не рабочий
         return
 
-    stats = await database.get_statistic() # Получение статистики из БД.
-
-    await bot.send_message(user_id, f"Статистика:\n\nСохранено чатов - {stats[0]}\nВсего сообщений - {stats[1]}") # Отправляем отчет.
-'''
-    
 @bot.message_handler(commands=['set_group']) # Обработка команды /set_group
 async def set_group(message):
     user_id = message.from_user.id
@@ -64,7 +67,8 @@ async def set_group(message):
         bot_chat_member = await bot.get_chat_member(message.chat.id, bot_info.id) # Получаем бота как пользователя группы
         if bot_chat_member.status in ['administrator', 'creator']: # Проверяем является ли бот администратором
             if bot_chat_member.can_manage_topics: # Проверяем есть ли у бота разрешение на редактирование threads
-                set_key('.env', 'group_id', str(message.chat.id))
+                set_key('.env', 'group_id', str(message.chat.id)) # Устанавливаем значения id группы для уведомлений
+                load_dotenv(override=True) # Обновляем все значения .env в памяти
                 await bot.send_message(message.from_user.id, f"Установлена новая группа для уведомлений !\n*Название:* {message.chat.title}\n*ID группы:* {message.chat.id}", parse_mode='Markdown')
             else:
                 await bot.reply_to(message, 'У меня нет прав на редактирование тем !')
@@ -74,19 +78,23 @@ async def set_group(message):
     else: # Если threads нету, просим пользователя их включить
         await bot.reply_to(message, "Внимание !\nВ группе должны быть включены темы.")
 
-'''
+
 @bot.business_message_handler(func=lambda message: True, content_types=['text']) # Обработка всех текстовых сообщений
 async def message_text_forwarder(message):
-    admin_id = int(os.getenv('admin_id'))
     user_id = message.from_user.id
+    group_id = os.getenv('group_id')
 
-    if user_id == admin_id: # Если это сообщение админа - пропускаем.
-        return
-
-    report = reports.report_for_sent_message(message.from_user.id, message.from_user.username, message.text) # Формируем отчет о сообщении (от кого, какое содержание)
-    bot_msg = await bot.send_message(admin_id, report, parse_mode='HTML')
+    topic_id = await database.search_topic_id(user_id)
+    if not topic_id:
+        topic = await bot.create_forum_topic(group_id, f"{message.from_user.username} ({user_id})")
+        topic_id = topic.message_thread_id
+        await database.save_topic_id(user_id, topic_id)
+    
+    report = reports.report_for_sent_message(user_id, message.from_user.username, message.text)
+    bot_msg = await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=report, parse_mode='HTML')
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
 
+'''
 @bot.business_message_handler(func=lambda message: True, content_types=['photo', 'video', 'document', 'audio']) # Обработка всех медиа к которым можно прикрепить текстовое сообщение.
 async def message_files_forwarder(message):
     admin_id = int(os.getenv('admin_id'))
