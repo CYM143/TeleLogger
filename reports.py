@@ -3,7 +3,7 @@ def report_for_sent_message(user_id: int, username: str, text: str) -> str:
     if text is not None:
         formatted_report = f"""Сообщение от @{username} ({user_id}):
 
-<blockquote> {text} </blockquote>"""
+<blockquote>{text}</blockquote>"""
     else:
         formatted_report = f"""Сообщение от @{username} ({user_id})"""
         
@@ -14,7 +14,7 @@ def report_for_edited_message(user_id: int, username: str, text: str) -> str:
     formatted_report = f"""Сообщение изменено ! Чат @{username} ({user_id})
 
 Измененное содержание:
-<blockquote> {text} </blockquote>
+<blockquote>{text}</blockquote>
 """
     return formatted_report
 
@@ -40,7 +40,16 @@ def report_for_delete_message_but_original_message_not_found(user_id: int, usern
     return formatted_report
 
 def report_for_start_topic(user_id: int, username: str) -> str:
-    """Function for start topic report generation."""
+    """Function for start topic report generation. Return formatted report."""
     formatted_report = f"Начата новая ветка для @{username} ({user_id})"
-    
+
+    return formatted_report
+
+def report_for_statistic(chat_count: int, records_count: int) -> str:
+    """Function for statistic report generation. Return formatted report."""
+    formatted_report = f"""*Статистика сохранения чатов:*
+Сохранено чатов: {chat_count}
+Всего сохранено сообщений: {records_count}
+"""
+
     return formatted_report

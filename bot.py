@@ -43,12 +43,10 @@ async def statistic_handler(message):
     admin_id = os.getenv('admin_id')
 
     if admin_id == str(user_id): # Если пишет админ, получаем и отправляем статистику бота
-        stats = await database.get_statistic()
+        stats = await database.get_statistic() # Получаем статистику из ДБ
+        report = reports.report_for_statistic(stats[0], stats[1]) # Формируем отчет
 
-        await bot.send_message(user_id, f"""*Статистика сохранения чатов:*
-Сохранено чатов: {stats[0]}
-Всего сохранено сообщений: {stats[1]}
-""", parse_mode='Markdown')
+        await bot.send_message(user_id, report, parse_mode='Markdown')
 
     else: # Если пишет не админ, то делаем вид, что бот не рабочий
         return
