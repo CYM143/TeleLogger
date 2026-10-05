@@ -38,3 +38,9 @@ def report_for_delete_message_but_original_message_not_found(user_id: int, usern
 Оригинальное сообщение не найдено в базе данных !
 """
     return formatted_report
+
+def report_for_start_topic(user_id: int, username: str) -> str:
+    """Function for start topic report generation."""
+    formatted_report = f"Начата новая ветка для @{username} ({user_id})"
+    
+    return formatted_report

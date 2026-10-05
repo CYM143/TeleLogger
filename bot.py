@@ -69,6 +69,7 @@ async def set_group(message):
             if bot_chat_member.can_manage_topics: # Проверяем есть ли у бота разрешение на редактирование threads
                 set_key('.env', 'group_id', str(message.chat.id)) # Устанавливаем значения id группы для уведомлений
                 load_dotenv(override=True) # Обновляем все значения .env в памяти
+                await bot.reply_to(message, "Эта группа установлена для уведомлений !")
                 await bot.send_message(message.from_user.id, f"Установлена новая группа для уведомлений !\n*Название:* {message.chat.title}\n*ID группы:* {message.chat.id}", parse_mode='Markdown')
             else:
                 await bot.reply_to(message, 'У меня нет прав на редактирование тем !')
@@ -84,13 +85,15 @@ async def message_text_forwarder(message):
     user_id = message.from_user.id
     group_id = os.getenv('group_id')
 
-    topic_id = await database.search_topic_id(user_id)
-    if not topic_id:
-        topic = await bot.create_forum_topic(group_id, f"{message.from_user.username} ({user_id})")
-        topic_id = topic.message_thread_id
-        await database.save_topic_id(user_id, topic_id)
+    topic_id = await database.search_topic_id(user_id) # Ищем thread id в БД
+    if not topic_id: # Если thread id не найден
+        topic = await bot.create_forum_topic(group_id, f"{message.from_user.username} ({user_id})") # Создаем новый thread
+        topic_id = topic.message_thread_id # Получаем его id
+        start_topic_text = reports.report_for_start_topic(user_id, message.from_username)
+        await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=start_topic_text) # Отправляем стартовое сообщение в thread
+        await database.save_topic_id(user_id, topic_id) # Сохраняем thread id в БД
     
-    report = reports.report_for_sent_message(user_id, message.from_user.username, message.text)
+    report = reports.report_for_sent_message(user_id, message.from_user.username, message.text) # Формируем отчет по сообщению
     bot_msg = await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=report, parse_mode='HTML')
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
 
