@@ -3,6 +3,7 @@ from telebot.async_telebot import AsyncTeleBot
 from dotenv import load_dotenv, set_key
 import asyncio, os
 import reports, database
+import additional_function as add_func
 
 load_dotenv()
 bot = AsyncTeleBot(os.getenv('API'))
@@ -83,15 +84,16 @@ async def message_text_forwarder(message):
     user_id = message.from_user.id
     group_id = os.getenv('group_id')
 
+    if not group_id: # Если группы для уведомлений ещё нет
+        admin_id = os.getenv('admin_id') # Получаем id админа и отправляем ему оповещение
+        await bot.send_message(admin_id, 'Внимание бот получил сообщение, но не смог его сохранить, установите группу для уведомлений через /set_group')
+        return
+    
     topic_id = await database.search_topic_id(user_id) # Ищем thread id в БД
     if not topic_id: # Если thread id не найден
-        topic = await bot.create_forum_topic(group_id, f"{message.from_user.username} ({user_id})") # Создаем новый thread
-        topic_id = topic.message_thread_id # Получаем его id
-        start_topic_text = reports.report_for_start_topic(user_id, message.from_username)
-        await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=start_topic_text) # Отправляем стартовое сообщение в thread
-        await database.save_topic_id(user_id, topic_id) # Сохраняем thread id в БД
+        topic_id = await add_func.create_new_topic(bot, message, user_id, group_id) # Создаём новый thread для отчетов
     
-    report = reports.report_for_sent_message(user_id, message.from_user.username, message.text) # Формируем отчет по сообщению
+    report = reports.report_for_sent_message(message.text) # Формируем отчет по сообщению
     bot_msg = await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=report, parse_mode='HTML')
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
 
@@ -136,44 +138,57 @@ async def message_media_forwarder(message):
         await bot.reply_to(bot_msg, text=report) # Отвечаем на видео-сообщение тк напрямую добавить текстовое сообщение не получится.
 
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
-
+'''
 @bot.edited_business_message_handler(func=lambda message: True) # Обработка отредактированных сообщений.
 async def message_edited(message):
-    admin_id = int(os.getenv('admin_id'))
     user_id = message.from_user.id
+    group_id = os.getenv('group_id')
 
-    if user_id == admin_id: # Если это сообщения админа - пропускаем.
+    if not group_id:
+        admin_id = os.getenv('admin_id')
+        await bot.send_message(admin_id, 'Внимание бот получил изменение сообщения, но не смог его отобразить, установите группу для уведомлений через /set_group')
         return
+
+    topic_id = await database.search_topic_id(user_id) # Ищем thread id в БД
+    if not topic_id: # Если thread id не найден
+        topic_id = await add_func.create_new_topic(bot, message, user_id, group_id) # Создаем новый thread для отчетов
 
     original_message_id = await database.get_message_id_from_bot_chat(user_id, message.message_id) # Получаем id сообщения бота для оригинального сообщения.
     if original_message_id is None: # Проверяем нашлись ли оригиналы сообщений.
-        report = reports.report_for_edited_message_but_original_message_not_found(user_id, message.from_user.username) # Формируем отчет.
-        await bot.send_message(admin_id, report)
+        report = reports.report_for_edited_message_but_original_message_not_found() # Формируем отчет.
+        await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=report)
         return
-    report = reports.report_for_edited_message(user_id, message.from_user.username, message.text) # Формируем отчет.
-    bot_msg = await bot.send_message(admin_id, report, reply_to_message_id=original_message_id, parse_mode="HTML")
+    
+    report = reports.report_for_edited_message(message.text) # Формируем отчет.
+    bot_msg = await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=report, reply_to_message_id=original_message_id, parse_mode="HTML")
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Пересохраняем новое id сообщения бота.
 
 @bot.deleted_business_messages_handler(func=lambda message: True) # Обработка удаленных сообщений.
 async def message_deleted(message):
-    admin_id = int(os.getenv('admin_id'))
-    user_id = message.chat.id
+    user_id = message.from_user.id
+    group_id = os.getenv('group_id')
 
-    if user_id == admin_id: # Если это сообщения админа - пропускаем.
+    if not group_id:
+        admin_id = os.getenv('admin_id')
+        await bot.send_message(admin_id, 'Внимание бот получил изменение сообщения, но не смог его отобразить, установите группу для уведомлений через /set_group')
         return
+
+    topic_id = await database.search_topic_id(user_id) # Ищем thread id в БД
+    if not topic_id: # Если thread id не найден
+        topic_id = await add_func.create_new_topic(bot, message, user_id, group_id) # Создаем новый thread для отчетов
 
     message_ids = message.message_ids # Получаем id удаленных сообщений.
     for message_id in message_ids: # Перебираем все id.
         original_message_id = await database.get_message_id_from_bot_chat(user_id, message_id) # Получаем id сообщения бота для оригинального сообщения.
         if original_message_id is None: # Проверяем нашлись ли оригиналы сообщений.
-            report = reports.report_for_delete_message_but_original_message_not_found(user_id, message.chat.username) # Формируем отчет.
-            await bot.send_message(admin_id, report)
+            report = reports.report_for_delete_message_but_original_message_not_found() # Формируем отчет.
+            await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=report)
         else:
-            report = reports.reprort_for_deleted_message(user_id, message.chat.username) # Формируем отчет.
-            await bot.send_message(admin_id, report, reply_to_message_id=original_message_id) 
-'''
+            report = reports.reprort_for_deleted_message() # Формируем отчет.
+            await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=report, reply_to_message_id=original_message_id) 
             
 async def main():
+    await database.init_db()
     print('Bot is now online.')
     await bot.infinity_polling()
 
