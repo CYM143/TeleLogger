@@ -1,4 +1,4 @@
-import database, reports, asyncio
+import database, reports, asyncio, os
 from telebot.types import InputMediaPhoto, InputMediaVideo, InputMediaDocument, InputMediaAudio
 
 media_massive = {}
@@ -39,8 +39,8 @@ async def proccess_input_media(message) -> list:
             if capt:
                 caption = capt
                 break
-
-        report = reports.report_for_sent_message(caption) # Формируем отчет
+        is_admin = os.getenv('admin_id') == str(message.from_user.id)
+        report = reports.report_for_sent_message(caption, is_admin) # Формируем отчет
 
         for i, (m_class, f_id, _) in enumerate(media_massive[message.media_group_id]): # Перебираем классы (InputMedia) и их id для отправки
             if i == 0: # Если это первый элемент привязываем к нему текст

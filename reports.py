@@ -1,11 +1,20 @@
-def report_for_sent_message(text: str) -> str:
+def report_for_sent_message(text: str, is_admin: bool) -> str:
     """Function for report generation. Return formatted report."""
-    if text is not None:
-        formatted_report = f"""Новое сообщение:
+    if not is_admin:
+        if text is not None:
+            formatted_report = f"""Новое сообщение:
 
 <blockquote>{text}</blockquote>"""
+        else:
+            formatted_report = f"Новое сообщение !"
+
     else:
-        formatted_report = f"Новое сообщение !"
+        if text is not None:
+            formatted_report = f"""Ваше новое сообщение:
+        
+<blockquote>{text}</blockquote>"""
+        else:
+            formatted_report = f"Ваше новое сообщение !"
         
     return formatted_report
 

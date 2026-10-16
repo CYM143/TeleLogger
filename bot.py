@@ -81,7 +81,7 @@ async def set_group(message):
 
 @bot.business_message_handler(func=lambda message: True, content_types=['text']) # Обработка всех текстовых сообщений
 async def message_text_forwarder(message):
-    user_id = message.from_user.id
+    user_id = message.chat.id
     group_id = os.getenv('group_id')
 
     if not group_id: # Если группы для уведомлений ещё нет
@@ -93,14 +93,15 @@ async def message_text_forwarder(message):
 
     if not topic_id: # Если thread id не найден
         topic_id = await add_func.create_new_topic(bot, message, user_id, group_id) # Создаём новый thread для отчетов
-    
-    report = reports.report_for_sent_message(message.text) # Формируем отчет по сообщению
+
+    is_admin = os.getenv('admin_id') == str(message.from_user.id)
+    report = reports.report_for_sent_message(message.text, is_admin) # Формируем отчет по сообщению
     bot_msg = await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=report, parse_mode='HTML')
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
 
 @bot.business_message_handler(func=lambda message: True, content_types=['photo', 'video', 'document', 'audio']) # Обработка всех медиа к которым можно прикрепить текстовое сообщение.
 async def message_files_forwarder(message):
-    user_id = message.from_user.id
+    user_id = message.chat.id
     group_id = os.getenv('group_id')
 
     if not group_id: # Если группы для уведомлений ещё нет
@@ -121,7 +122,7 @@ async def message_files_forwarder(message):
 
 @bot.business_message_handler(func=lambda message: True, content_types=['voice', 'video_note']) # Обработка всех медиа к которым нельзя прикрепить текстовое сообщене.
 async def message_media_forwarder(message):
-    user_id = message.from_user.id
+    user_id = message.chat.id
     group_id = os.getenv('group_id')
 
     if not group_id: # Если группы для уведомлений ещё нет
@@ -134,7 +135,8 @@ async def message_media_forwarder(message):
     if not topic_id: # Если thread id не найден
         topic_id = add_func.create_new_topic(bot, message, user_id, group_id) # Создаем новый thread для отчетов
 
-    report = reports.report_for_sent_message(message.caption) # Формируем текстовый отчет для сообщения.
+    is_admin = os.getenv('admin_id') == str(message.from_user.id)
+    report = reports.report_for_sent_message(message.caption, is_admin) # Формируем текстовый отчет для сообщения.
 
     # Выбирвем формат файла и отправляем отчет.
     if message.content_type == 'voice':
