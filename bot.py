@@ -117,7 +117,7 @@ async def message_files_forwarder(message):
 
     if media: # Если меди группа собрана, то отправляем сообщение
         bot_msg = await bot.send_media_group(chat_id=group_id, message_thread_id=topic_id, media=media)
-        await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщения в БД
+        await database.save_message(user_id, bot_msg[0].message_id, message.message_id) # Сохраняем id первого сообщения из медиа группы в БД
 
 '''
 @bot.business_message_handler(func=lambda message: True, content_types=['voice', 'video_note']) # Обработка всех медиа к которым нельзя прикрепить текстовое сообщене.
