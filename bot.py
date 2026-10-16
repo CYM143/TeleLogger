@@ -1,5 +1,6 @@
 import telebot
 from telebot.async_telebot import AsyncTeleBot
+from telebot.types import InputMedia
 from dotenv import load_dotenv, set_key
 import asyncio, os
 import reports, database
@@ -78,7 +79,6 @@ async def set_group(message):
     else: # Если threads нету, просим пользователя их включить
         await bot.reply_to(message, "Внимание !\nВ группе должны быть включены темы.")
 
-
 @bot.business_message_handler(func=lambda message: True, content_types=['text']) # Обработка всех текстовых сообщений
 async def message_text_forwarder(message):
     user_id = message.from_user.id
@@ -119,26 +119,33 @@ async def message_files_forwarder(message):
         bot_msg = await bot.send_media_group(chat_id=group_id, message_thread_id=topic_id, media=media)
         await database.save_message(user_id, bot_msg[0].message_id, message.message_id) # Сохраняем id первого сообщения из медиа группы в БД
 
-'''
+
 @bot.business_message_handler(func=lambda message: True, content_types=['voice', 'video_note']) # Обработка всех медиа к которым нельзя прикрепить текстовое сообщене.
 async def message_media_forwarder(message):
-    admin_id = int(os.getenv('admin_id'))
     user_id = message.from_user.id
+    group_id = os.getenv('group_id')
 
-    if user_id == admin_id: # Если это сообщение админа - пропускаем.
-        return
+    if not group_id: # Если группы для уведомлений ещё нет
+            admin_id = os.getenv('admin_id') # Получаем id админа и отправляем ему оповещение
+            await bot.send_message(admin_id, 'Внимание бот получил сообщение, но не смог его сохранить, установите группу для уведомлений через /set_group')
+            return
+    
+    topic_id = await database.search_topic_id(user_id)
 
-    report = reports.report_for_sent_message(user_id, message.from_user.username, message.caption)# Формируем текстовый отчет для сообщения.
+    if not topic_id: # Если thread id не найден
+        topic_id = add_func.create_new_topic(bot, message, user_id, group_id) # Создаем новый thread для отчетов
+
+    report = reports.report_for_sent_message(message.caption) # Формируем текстовый отчет для сообщения.
 
     # Выбирвем формат файла и отправляем отчет.
     if message.content_type == 'voice':
-        bot_msg = await bot.send_audio(admin_id, message.voice.file_id, caption=report, parse_mode="HTML")
+        bot_msg = await bot.send_audio(chat_id=group_id, message_thread_id=topic_id, audio=message.voice.file_id, caption=report, parse_mode="HTML")
     elif message.content_type == 'video_note':
-        bot_msg = await bot.send_video(admin_id, message.video_note.file_id)
+        bot_msg = await bot.send_video(chat_id=group_id, message_thread_id=topic_id, video=message.video_note.file_id)
         await bot.reply_to(bot_msg, text=report) # Отвечаем на видео-сообщение тк напрямую добавить текстовое сообщение не получится.
 
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
-'''
+
 @bot.edited_business_message_handler(func=lambda message: True) # Обработка отредактированных сообщений.
 async def message_edited(message):
     user_id = message.from_user.id
