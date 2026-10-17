@@ -1,6 +1,4 @@
-import telebot
 from telebot.async_telebot import AsyncTeleBot
-from telebot.types import InputMedia
 from dotenv import load_dotenv, set_key
 import asyncio, os
 import reports, database
@@ -112,7 +110,7 @@ async def message_files_forwarder(message):
     topic_id = await database.search_topic_id(user_id)
 
     if not topic_id: # Если thread id не найден
-        topic_id = add_func.create_new_topic(bot, message, user_id, group_id) # Создаем новый thread для отчетов
+        topic_id = await add_func.create_new_topic(bot, message, user_id, group_id) # Создаем новый thread для отчетов
     
     media = await add_func.proccess_input_media(message) # Собираем медиа группу
 
@@ -133,7 +131,7 @@ async def message_media_forwarder(message):
     topic_id = await database.search_topic_id(user_id)
 
     if not topic_id: # Если thread id не найден
-        topic_id = add_func.create_new_topic(bot, message, user_id, group_id) # Создаем новый thread для отчетов
+        topic_id = await add_func.create_new_topic(bot, message, user_id, group_id) # Создаем новый thread для отчетов
 
     is_admin = os.getenv('admin_id') == str(message.from_user.id)
     report = reports.report_for_sent_message(message.caption, is_admin) # Формируем текстовый отчет для сообщения.
@@ -142,14 +140,14 @@ async def message_media_forwarder(message):
     if message.content_type == 'voice':
         bot_msg = await bot.send_audio(chat_id=group_id, message_thread_id=topic_id, audio=message.voice.file_id, caption=report, parse_mode="HTML")
     elif message.content_type == 'video_note':
-        bot_msg = await bot.send_video(chat_id=group_id, message_thread_id=topic_id, video=message.video_note.file_id)
+        bot_msg = await bot.send_video_note(chat_id=group_id, message_thread_id=topic_id, video=message.video_note.file_id)
         await bot.reply_to(bot_msg, text=report) # Отвечаем на видео-сообщение тк напрямую добавить текстовое сообщение не получится.
 
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
 
 @bot.edited_business_message_handler(func=lambda message: True) # Обработка отредактированных сообщений.
 async def message_edited(message):
-    user_id = message.from_user.id
+    user_id = message.chat.id
     group_id = os.getenv('group_id')
 
     if not group_id:
@@ -173,7 +171,7 @@ async def message_edited(message):
 
 @bot.deleted_business_messages_handler(func=lambda message: True) # Обработка удаленных сообщений.
 async def message_deleted(message):
-    user_id = message.from_user.id
+    user_id = message.chat.id
     group_id = os.getenv('group_id')
 
     if not group_id:
