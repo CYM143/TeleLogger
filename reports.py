@@ -1,10 +1,12 @@
+import html
+
 def report_for_sent_message(text: str, is_admin: bool) -> str:
     """Function for report generation. Return formatted report."""
     if not is_admin:
         if text is not None:
             formatted_report = f"""Новое сообщение:
 
-<blockquote>{text}</blockquote>"""
+<blockquote>{html.escape(text)}</blockquote>"""
         else:
             formatted_report = f"Новое сообщение !"
 
@@ -12,7 +14,7 @@ def report_for_sent_message(text: str, is_admin: bool) -> str:
         if text is not None:
             formatted_report = f"""Ваше новое сообщение:
         
-<blockquote>{text}</blockquote>"""
+<blockquote>{html.escape(text)}</blockquote>"""
         else:
             formatted_report = f"Ваше новое сообщение !"
         
@@ -22,7 +24,7 @@ def report_for_edited_message(text: str) -> str:
     """Function for edited message report generation. Return formatted report."""
     formatted_report = f"""Сообщение изменено ! 
 Измененное содержание:
-<blockquote>{text}</blockquote>
+<blockquote>{html.escape(text)}</blockquote>
 """
     return formatted_report
 

@@ -145,7 +145,7 @@ async def message_media_forwarder(message):
 
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Сохраняем id сообщений в БД.
 
-@bot.edited_business_message_handler(func=lambda message: True) # Обработка отредактированных сообщений.
+@bot.edited_business_message_handler(func=lambda message: True, content_types=['text', 'photo', 'video', 'document', 'audio']) # Обработка отредактированных сообщений.
 async def message_edited(message):
     user_id = message.chat.id
     group_id = os.getenv('group_id')
@@ -165,7 +165,7 @@ async def message_edited(message):
         await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=report)
         return
     
-    report = reports.report_for_edited_message(message.text) # Формируем отчет.
+    report = reports.report_for_edited_message(message.caption if message.caption else message.text) # Формируем отчет.
     bot_msg = await bot.send_message(chat_id=group_id, message_thread_id=topic_id, text=report, reply_to_message_id=original_message_id, parse_mode="HTML")
     await database.save_message(user_id, bot_msg.message_id, message.message_id) # Пересохраняем новое id сообщения бота.
 

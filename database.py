@@ -29,7 +29,7 @@ async def search_topic_id(chat_id: int) -> int | bool:
 async def save_topic_id(chat_id: int, topic_id: int) -> None:
     """Function for save topic id."""
     async with aiosqlite.connect(database_name) as db:
-        await db.execute('INSERT INTO "topics" (chat_id, topic_id) VALUES (?, ?)', (chat_id, topic_id))
+        await db.execute('INSERT OR REPLACE INTO "topics" (chat_id, topic_id) VALUES (?, ?)', (chat_id, topic_id))
         await db.commit()
 
 async def get_message_id_from_bot_chat(user_id: int, chat_message_id: int) -> int:
